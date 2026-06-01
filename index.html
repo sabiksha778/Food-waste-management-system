@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Food Waste Dashboard</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #eef2f3;
+    margin: 0;
+}
+
+h1 {
+    background: #2E7D32;
+    color: white;
+    padding: 15px;
+    text-align: center;
+}
+
+.container {
+    width: 85%;
+    margin: auto;
+}
+
+.box {
+    background: white;
+    padding: 15px;
+    margin: 20px auto;
+    border-radius: 10px;
+    box-shadow: 0 3px 8px gray;
+}
+
+.form-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+input {
+    padding: 8px;
+    width: 200px;
+}
+
+button {
+    padding: 8px 15px;
+    background: #2E7D32;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #1B5E20;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th {
+    background: #2E7D32;
+    color: white;
+}
+
+th, td {
+    padding: 10px;
+    border: 1px solid #ccc;
+}
+
+td {
+    text-align: left;
+}
+
+tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.full {
+    color: green;
+    font-weight: bold;
+}
+
+.partial {
+    color: red;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🍽️ Food Waste Management Dashboard</h1>
+
+<div class="container">
+
+<div class="box">
+<h3>Add Food</h3>
+<div class="form-row">
+<input id="hotel" placeholder="Hotel Name">
+<input id="qty" type="number" placeholder="Quantity">
+<button onclick="addFood()">Add</button>
+</div>
+</div>
+
+<div class="box">
+<h3>NGO Request</h3>
+<div class="form-row">
+<input id="ngo" placeholder="NGO Name">
+<input id="need" type="number" placeholder="Required Qty">
+<button onclick="requestFood()">Request</button>
+</div>
+</div>
+
+<div class="box">
+<button onclick="allocateFood()">Allocate Food</button>
+<button onclick="clearAllData()">🗑 Reset Data</button>
+</div>
+
+<div class="box">
+<h3>📋 Food Data</h3>
+<table id="foodTable"></table>
+</div>
+
+<div class="box">
+<h3>📌 NGO Queue</h3>
+<table id="ngoTable"></table>
+</div>
+
+<div class="box">
+<h3>📜 Allocation History</h3>
+<table id="historyTable"></table>
+</div>
+
+</div>
+
+<script>
+
+// Load data
+let foodList = JSON.parse(localStorage.getItem("foodList")) || [];
+let ngoQueue = JSON.parse(localStorage.getItem("ngoQueue")) || [];
+let history = JSON.parse(localStorage.getItem("history")) || [];
+
+// Get date & time
+function getDateTime() {
+    return new Date().toLocaleString();
+}
+
+// Save data
+function saveData() {
+    localStorage.setItem("foodList", JSON.stringify(foodList));
+    localStorage.setItem("ngoQueue", JSON.stringify(ngoQueue));
+    localStorage.setItem("history", JSON.stringify(history));
+}
+
+// Add food
+function addFood() {
+    let hotel = document.getElementById("hotel").value;
+    let qty = parseInt(document.getElementById("qty").value);
+
+    if (!hotel || qty <= 0) {
+        alert("Enter valid data!");
+        return;
+    }
+
+    foodList.push({
+        hotel,
+        qty,
+        time: getDateTime()
+    });
+
+    saveData();
+    display();
+}
+
+// NGO request
+function requestFood() {
+    let ngo = document.getElementById("ngo").value;
+    let need = parseInt(document.getElementById("need").value);
+
+    if (!ngo || need <= 0) {
+        alert("Enter valid data!");
+        return;
+    }
+
+    ngoQueue.push({
+        name: ngo,
+        need,
+        time: getDateTime()
+    });
+
+    saveData();
+    display();
+}
+
+// Allocate food
+function allocateFood() {
+    if (ngoQueue.length === 0 || foodList.length === 0) {
+        alert("No food or NGO!");
+        return;
+    }
+
+    let ngo = ngoQueue.shift();
+    let need = ngo.need;
+    let original = need;
+
+    while (foodList.length > 0 && need > 0) {
+        if (foodList[0].qty <= need) {
+            need -= foodList[0].qty;
+            foodList.shift();
+        } else {
+            foodList[0].qty -= need;
+            need = 0;
+        }
+    }
+
+    let status = (need === 0) ? "Full" : "Partial";
+
+    history.push({
+        name: ngo.name,
+        given: original - need,
+        total: original,
+        status,
+        time: getDateTime()
+    });
+
+    saveData();
+    display();
+}
+
+// Reset data
+function clearAllData() {
+    if (confirm("Delete all data?")) {
+        localStorage.clear();
+        foodList = [];
+        ngoQueue = [];
+        history = [];
+        display();
+    }
+}
+
+// Display tables
+function display() {
+
+    let foodHTML = "<tr><th>Hotel</th><th>Quantity</th><th>Date & Time</th></tr>";
+    foodList.forEach(f => {
+        foodHTML += `<tr>
+            <td>${f.hotel}</td>
+            <td>${f.qty}</td>
+            <td>${f.time}</td>
+        </tr>`;
+    });
+    document.getElementById("foodTable").innerHTML = foodHTML;
+
+    let ngoHTML = "<tr><th>NGO</th><th>Required</th><th>Date & Time</th></tr>";
+    ngoQueue.forEach(n => {
+        ngoHTML += `<tr>
+            <td>${n.name}</td>
+            <td>${n.need}</td>
+            <td>${n.time}</td>
+        </tr>`;
+    });
+    document.getElementById("ngoTable").innerHTML = ngoHTML;
+
+    let histHTML = "<tr><th>NGO</th><th>Given</th><th>Status</th><th>Date & Time</th></tr>";
+    history.forEach(h => {
+        let cls = (h.status === "Full") ? "full" : "partial";
+        histHTML += `<tr>
+            <td>${h.name}</td>
+            <td>${h.given}/${h.total}</td>
+            <td class="${cls}">${h.status}</td>
+            <td>${h.time}</td>
+        </tr>`;
+    });
+    document.getElementById("historyTable").innerHTML = histHTML;
+}
+
+window.onload = display;
+
+</script>
+
+</body>
+</html>
